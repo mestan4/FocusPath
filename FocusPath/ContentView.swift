@@ -1,20 +1,23 @@
 import SwiftUI
 
-struct Hedef: Identifiable {
+struct Hedef: Identifiable, Codable, Equatable {
     let id = UUID()
     var baslik: String
     var tamamlandi: Bool = false
 }
 
-struct ContentView: View {
+struct ContentView: View {  
     
     @State private var hedefSayisi = 0
     @State private var yeniHedefMetni = ""
-    @State private var planlarim = [
-        Hedef(baslik:"SwiftUI Mantığını Kavramak."),
-        Hedef(baslik:"Yarın Sinemaya Gitmek."),
-        Hedef(baslik:"180 Sayfa Kitap Okumak.")
-    ]
+    // Hafızadan yükle veya boş başlat
+        @State private var planlarim: [Hedef] = {
+            if let data = UserDefaults.standard.data(forKey: "KayitliHedefler"),
+               let decoded = try? JSONDecoder().decode([Hedef].self, from: data) {
+                return decoded
+            }
+            return []
+        }()
     
     @State private var silmeOnayiGosterilsin = false
     @State private var silinecekIndexler: IndexSet?
@@ -34,6 +37,24 @@ struct ContentView: View {
         toplamHedef > 0 ? Double(tamamlananHedef) / Double(toplamHedef) : 0
     }
     
+    // Yüzdeye göre renk belirleyen fonksiyon
+    var cubukRengi: Color {
+        switch basariYuzdesi {
+        case 0..<0.25:
+            return .red
+        case 0.25..<0.50:
+            return .orange
+        case 0.50..<0.75:
+            return .yellow
+        case 0.75..<1.0:
+            return .green
+        case 1.0:
+            return .blue
+        default:
+            return .gray
+        }
+    }
+    
     var body: some View {
         NavigationStack {
             
@@ -43,9 +64,22 @@ struct ContentView: View {
                         .font(.headline) // Eski büyük hali
                     
                     ProgressView(value: basariYuzdesi)
-                        .tint(basariYuzdesi == 1.0 ? .green : .blue)
-                        //.padding(.horizontal, 25) // Çubuğu yanlardan iyice daralttık
+                        .tint(cubukRengi)
                         .scaleEffect(y: 1.2) // Çubuğu biraz kalın tutuyoruz
+                        .animation(.spring(), value: basariYuzdesi)
+
+                    // Bu tebrikMesaji'nı da yukarıdaki değişkenlerin oraya eklemelisin:
+                    var tebrikMesaji: String {
+                        if basariYuzdesi == 0 { return "Harekete geç yoldaş!" }
+                        else if basariYuzdesi < 0.5 { return "Güzel başlangıç, devam et." }
+                        else if basariYuzdesi < 1.0 { return "Neredeyse bitti, harikasın!" }
+                        else { return "Devrim tamamlandı! 🥃" }
+                    }
+                    
+                    Text(tebrikMesaji)
+                        .font(.caption)
+                        .italic()
+                        .foregroundColor(cubukRengi)
                     
                     HStack {
                         Text("Başarı: %\(Int(basariYuzdesi * 100))")
@@ -115,6 +149,12 @@ struct ContentView: View {
                         }
                     }
                     .buttonStyle(.borderedProminent)
+                }
+                
+                .onChange(of: planlarim) {
+                    if let encoded = try? JSONEncoder().encode(planlarim) {
+                        UserDefaults.standard.set(encoded, forKey: "KayitliHedefler")
+                    }
                 }
             }
             .navigationTitle("Focus Path") // DÜZELTME: List'e ait olmalı
