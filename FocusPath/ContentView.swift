@@ -1,164 +1,151 @@
 import SwiftUI
 
+// MARK: - Model
 struct Hedef: Identifiable, Codable, Equatable {
-    let id = UUID()
+    var id = UUID()
     var baslik: String
     var tamamlandi: Bool = false
+    var kategori: String = "Genel"
 }
 
-struct ContentView: View {  
-    
+struct ContentView: View {
+    // MARK: - State Properties
     @State private var hedefSayisi = 0
     @State private var yeniHedefMetni = ""
-    // Hafızadan yükle veya boş başlat
-        @State private var planlarim: [Hedef] = {
-            if let data = UserDefaults.standard.data(forKey: "KayitliHedefler"),
-               let decoded = try? JSONDecoder().decode([Hedef].self, from: data) {
-                return decoded
-            }
-            return []
-        }()
-    
+    @State private var secilenKategori = "Genel"
     @State private var silmeOnayiGosterilsin = false
     @State private var silinecekIndexler: IndexSet?
     
-    // Toplam hedef sayısı
-    var toplamHedef: Int {
-        planlarim.count
-    }
-
-    // Tamamlanan hedef sayısı
-    var tamamlananHedef: Int {
-        planlarim.filter { $0.tamamlandi }.count
-    }
-
-    // Başarı yüzdesi (0.0 ile 1.0 arası)
-    var basariYuzdesi: Double {
-        toplamHedef > 0 ? Double(tamamlananHedef) / Double(toplamHedef) : 0
-    }
+    let kategoriler = ["Genel", "İş", "Hobi", "Sağlık"]
     
-    // Yüzdeye göre renk belirleyen fonksiyon
+    // Hafızadan yükleme mantığı
+    @State private var planlarim: [Hedef] = {
+        if let data = UserDefaults.standard.data(forKey: "KayitliHedefler"),
+           let decoded = try? JSONDecoder().decode([Hedef].self, from: data) {
+            return decoded
+        }
+        return []
+    }()
+    
+    // MARK: - Computed Properties (Hesaplamalar)
+    var toplamHedef: Int { planlarim.count }
+    var tamamlananHedef: Int { planlarim.filter { $0.tamamlandi }.count }
+    var basariYuzdesi: Double { toplamHedef > 0 ? Double(tamamlananHedef) / Double(toplamHedef) : 0 }
+    
     var cubukRengi: Color {
         switch basariYuzdesi {
-        case 0..<0.25:
-            return .red
-        case 0.25..<0.50:
-            return .orange
-        case 0.50..<0.75:
-            return .yellow
-        case 0.75..<1.0:
-            return .green
-        case 1.0:
-            return .blue
-        default:
-            return .gray
+        case 0..<0.25: return .red
+        case 0.25..<0.50: return .orange
+        case 0.50..<0.75: return .yellow
+        case 0.75..<1.0: return .green
+        default: return .blue
         }
     }
     
+    var tebrikMesaji: String {
+        if basariYuzdesi == 0 { return "Harekete geçme vakti!" }
+        else if basariYuzdesi < 0.5 { return "Güzel başlangıç, devam et." }
+        else if basariYuzdesi < 1.0 { return "Neredeyse bitti, harikasın!" }
+        else { return "Tebrikler, tüm hedefler tamamlandı! 🏆" }
+    }
+    
+    // MARK: - Body
     var body: some View {
         NavigationStack {
-            
-            Section {
-                VStack(alignment: .leading, spacing: 12) { // Rakamlar ve yazı arası boşluk eski haline döndü
-                    Text("Günün Başarı Oranı")
-                        .font(.headline) // Eski büyük hali
-                    
-                    ProgressView(value: basariYuzdesi)
-                        .tint(cubukRengi)
-                        .scaleEffect(y: 1.2) // Çubuğu biraz kalın tutuyoruz
-                        .animation(.spring(), value: basariYuzdesi)
-
-                    // Bu tebrikMesaji'nı da yukarıdaki değişkenlerin oraya eklemelisin:
-                    var tebrikMesaji: String {
-                        if basariYuzdesi == 0 { return "Harekete geç yoldaş!" }
-                        else if basariYuzdesi < 0.5 { return "Güzel başlangıç, devam et." }
-                        else if basariYuzdesi < 1.0 { return "Neredeyse bitti, harikasın!" }
-                        else { return "Devrim tamamlandı! 🥃" }
-                    }
-                    
-                    Text(tebrikMesaji)
-                        .font(.caption)
-                        .italic()
-                        .foregroundColor(cubukRengi)
-                    
-                    HStack {
-                        Text("Başarı: %\(Int(basariYuzdesi * 100))")
-                        Spacer()
-                        Text("\(tamamlananHedef) / \(toplamHedef)")
-                    }
-                    .font(.subheadline) // Eski okunaklı hali
-                    .foregroundColor(.secondary)
+            // Üst Bölüm: İlerleme Raporu
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Günün Başarı Oranı")
+                    .font(.headline)
+                
+                ProgressView(value: basariYuzdesi)
+                    .tint(cubukRengi)
+                    .scaleEffect(y: 1.2)
+                    .animation(.spring(), value: basariYuzdesi)
+                
+                Text(tebrikMesaji)
+                    .font(.caption)
+                    .italic()
+                    .foregroundColor(cubukRengi)
+                
+                HStack {
+                    Text("Başarı: %\(Int(basariYuzdesi * 100))")
+                    Spacer()
+                    Text("\(tamamlananHedef) / \(toplamHedef)")
                 }
-                .padding(.horizontal, 20)
-                .padding(.vertical, 8)
+                .font(.subheadline)
+                .foregroundColor(.secondary)
             }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 8)
             
             List {
-                // Yeni hedef ekleme bölümü
+                // Kategori Seçici
+                Picker("Kategori", selection: $secilenKategori) {
+                    ForEach(kategoriler, id: \.self) { kat in
+                        Text(kat)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .padding(.vertical, 5)
+                
+                // Yeni Hedef Girişi
                 Section(header: Text("Yeni Hedef Ekle")) {
                     HStack {
-                        TextField("Yeni Hedefinizi Giriniz...", text: $yeniHedefMetni)
+                        TextField("Yeni hedefinizi giriniz...", text: $yeniHedefMetni)
                             .textFieldStyle(.plain)
-                            .onSubmit {
-                                if !yeniHedefMetni.isEmpty {
-                                    // DÜZELTME: Hedef objesi olarak ekliyoruz
-                                    planlarim.append(Hedef(baslik: yeniHedefMetni))
-                                    yeniHedefMetni = ""
-                                }
-                            }
+                            .onSubmit { ekle() }
                         
                         if !yeniHedefMetni.isEmpty {
-                            Button(action: {
-                                // DÜZELTME: Hedef objesi olarak ekliyoruz
-                                planlarim.append(Hedef(baslik: yeniHedefMetni))
-                                yeniHedefMetni = ""
-                            }) {
+                            Button(action: ekle) {
                                 Image(systemName: "plus.circle.fill")
                                     .foregroundColor(.green)
+                                    .font(.title2)
                             }
                         }
                     }
                 }
                 
-                // Liste gösterimi
-                Section(header: Text("Planlarım:")) {
+                // Hedef Listesi
+                Section(header: Text("Planlarım")) {
                     ForEach($planlarim) { $plan in
                         HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(plan.baslik)
+                                    .strikethrough(plan.tamamlandi)
+                                    .foregroundColor(plan.tamamlandi ? .secondary : .primary)
+                                    .font(.body)
+                                
+                                Text(plan.kategori)
+                                    .font(.caption2)
+                                    .bold()
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 2)
+                                    .background(kategoriRengi(kat: plan.kategori).opacity(0.15))
+                                    .foregroundColor(kategoriRengi(kat: plan.kategori))
+                                    .cornerRadius(6)
+                            }
+                            
+                            Spacer()
+                            
                             Image(systemName: plan.tamamlandi ? "checkmark.circle.fill" : "circle")
                                 .foregroundStyle(plan.tamamlandi ? .green : .gray)
+                                .font(.title3)
                                 .onTapGesture {
                                     plan.tamamlandi.toggle()
                                 }
-                            
-                            Text(plan.baslik)
-                                .strikethrough(plan.tamamlandi)
-                                .foregroundColor(plan.tamamlandi ? .secondary : .primary)
                         }
+                        .padding(.vertical, 4)
                     }
-                    .onDelete(perform: SilKaydir) // DÜZELTME: onDelete yeri burası
-                }
-                
-                // Buton ve durum bölümü
-                Section {
-                    Button(action: {
-                        hedefSayisi += 1
-                    }) {
-                        HStack {
-                            Image(systemName: "checkmark.circle.fill")
-                            Text("Bir hedef daha tamamlandı!")
-                        }
-                    }
-                    .buttonStyle(.borderedProminent)
-                }
-                
-                .onChange(of: planlarim) {
-                    if let encoded = try? JSONEncoder().encode(planlarim) {
-                        UserDefaults.standard.set(encoded, forKey: "KayitliHedefler")
-                    }
+                    .onDelete(perform: SilKaydir)
                 }
             }
-            .navigationTitle("Focus Path") // DÜZELTME: List'e ait olmalı
-            .alert("Emin misin yoldaş?", isPresented: $silmeOnayiGosterilsin) {
+            .navigationTitle("Focus Path")
+            // Hafıza Kaydı Bekçisi
+            .onChange(of: planlarim) {
+                kaydet()
+            }
+            // Silme Onay Penceresi
+            .alert("Emin misiniz?", isPresented: $silmeOnayiGosterilsin) {
                 Button("Evet, Sil", role: .destructive) {
                     if let offsets = silinecekIndexler {
                         planlarim.remove(atOffsets: offsets)
@@ -166,14 +153,38 @@ struct ContentView: View {
                 }
                 Button("Vazgeç", role: .cancel) { }
             } message: {
-                Text("Bu hedefi silmek devrimci disipline sığmaz, yine de silmek istiyor musun?")
+                Text("Bu hedefi silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.")
             }
         }
-    } // body bitti
+    }
+    
+    // MARK: - Functions
+    func ekle() {
+        if !yeniHedefMetni.isEmpty {
+            let yeniHedef = Hedef(baslik: yeniHedefMetni, kategori: secilenKategori)
+            planlarim.append(yeniHedef)
+            yeniHedefMetni = ""
+        }
+    }
+    
+    func kaydet() {
+        if let encoded = try? JSONEncoder().encode(planlarim) {
+            UserDefaults.standard.set(encoded, forKey: "KayitliHedefler")
+        }
+    }
+    
+    func kategoriRengi(kat: String) -> Color {
+        switch kat {
+        case "İş": return .blue
+        case "Hobi": return .orange
+        case "Sağlık": return .red
+        default: return .green
+        }
+    }
     
     func SilKaydir(at offsets: IndexSet) {
-        silinecekIndexler = offsets // Silinecek yeri not et
-        silmeOnayiGosterilsin = true // Alert penceresini uyandır
+        silinecekIndexler = offsets
+        silmeOnayiGosterilsin = true
     }
 }
 
