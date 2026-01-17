@@ -16,6 +16,8 @@ struct ContentView: View {
     @State private var silmeOnayiGosterilsin = false
     @State private var silinecekIndexler: IndexSet?
     @State private var konfetiGosterilsin = false
+    @AppStorage("isDarkMode") private var isDarkMode: Bool = false
+    // 0: Sistem, 1: Aydınlık, 2: Karanlık
     
     let kategoriler = ["Genel", "İş", "Hobi", "Sağlık"]
     
@@ -83,6 +85,14 @@ struct ContentView: View {
                     .background(Color(UIColor.systemBackground))
                     
                     List {
+                        /*Section(header: Text("Görünüm Ayarları")){
+                            Picker("Tema", selection: $secilenTema){
+                                Text("Sistem").tag(0)
+                                Text("Aydınlık").tag(1)
+                                Text("Karanlık").tag(2)
+                            }
+                            .pickerStyle(.segmented)
+                        }*/
                         Picker("Kategori", selection: $secilenKategori) {
                             ForEach(kategoriler, id: \.self) { kat in
                                 Text(kat)
@@ -151,6 +161,16 @@ struct ContentView: View {
                 }
             }
             .navigationTitle("Focus Path")
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) { // Sağ üst köşe
+                    Button {
+                        isDarkMode.toggle() // Basınca mod değiştir
+                    } label: {
+                        Image(systemName: isDarkMode ? "sun.max.fill" : "moon.fill")
+                            .foregroundColor(isDarkMode ? .yellow : .primary) // Dark modda güneş sarı olsun
+                    }
+                }
+            }
             .onChange(of: planlarim) { _ in
                 kaydet()
                 if basariYuzdesi == 1.0 {
@@ -170,6 +190,7 @@ struct ContentView: View {
             } message: {
                 Text("Bu hedefi silmek istediğinizden emin misiniz?")
             }
+            .preferredColorScheme(isDarkMode ? .dark : .light)
         }
     }
     
@@ -220,5 +241,10 @@ struct LottieView: UIViewRepresentable {
 }
 
 #Preview {
-    ContentView()
+    Group {
+        ContentView()
+            .preferredColorScheme(.light)
+        ContentView()
+            .preferredColorScheme(.dark)
+    }
 }
